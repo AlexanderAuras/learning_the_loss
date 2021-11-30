@@ -52,14 +52,15 @@ def test(dataloader, model, loss_function):
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {loss:>8f} \n")
 
-data = torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=transforms.Compose([transforms.Resize((224, 224)), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]))
+#transforms.Resize((224, 224)), 
+data = torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=transforms.Compose([transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]))
 training_data, validation_data = torch.utils.data.random_split(data, [int(len(data)*0.75), int(len(data)*0.25)])
-test_data = torchvision.datasets.CIFAR10(root="data", train=False, download=True, transform=transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]))
+test_data = torchvision.datasets.CIFAR10(root="data", train=False, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]))
 train_dataloader = torch.utils.data.DataLoader(training_data, batch_size=64)
 validate_dataloader = torch.utils.data.DataLoader(validation_data, batch_size=64)
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=64)
 
-model = ResNet18()
+model = SimpleCIFARNet()#ResNet18()
 #model.load_state_dict(torch.load("resnet18.pth"))
 model.cuda()
 loss_function = nn.CrossEntropyLoss()

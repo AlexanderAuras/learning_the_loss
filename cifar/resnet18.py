@@ -18,7 +18,7 @@ class ResNet18(nn.Module):
             ResidualBlock(512, 512, nn.Conv2d(512, 512, 3, 1, 1), nn.BatchNorm2d(512), nn.ReLU(), nn.Conv2d(512, 512, 3, 1, 1), nn.BatchNorm2d(512)),
             nn.AvgPool2d(7),
             nn.Flatten(),
-            nn.Linear(512, 1000)
+            nn.Linear(512, 10)
         )
 
     def forward(self, x):

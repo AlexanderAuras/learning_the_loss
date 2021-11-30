@@ -10,8 +10,10 @@ class SimpleCIFARNet(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, 3, 1, 1), 
             nn.ReLU(),
+            nn.Conv2d(64, 128, 3, 2, 1), 
+            nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(32*32*64, 10)
+            nn.Linear(16*16*128, 10)
         )
 
     def forward(self, x):
