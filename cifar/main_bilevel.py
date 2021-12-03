@@ -7,7 +7,7 @@ np.random.seed(0)
 import torch
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
-#torch.use_deterministic_algorithms(True)
+torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 from torch import nn
@@ -16,8 +16,6 @@ import torchvision
 from torchvision import transforms
 
 import higher
-
-import matplotlib.pyplot as plt
 
 from resnet18 import ResNet18
 from simple_net import SimpleCIFARNet
@@ -72,6 +70,10 @@ def bilevel_step(model: nn.Module,
                     outer_loss_function: nn.Module, 
                     outer_optimizer: torch.optim.Optimizer)->None:
     global global_epoch, global_steps_per_epoch, global_step_in_epoch, global_inner_iterations
+
+    #if global_epoch == 1 and global_step_in_epoch == 0:
+    #    with torch.no_grad():
+    #        inner_loss_function.smoothing.copy_(torch.randn((1,)))
 
     with higher.innerloop_ctx(model, inner_optimizer) as (fmodel, diffopt):
         ######Inner optimization#####
@@ -160,7 +162,7 @@ test_data = torchvision.datasets.CIFAR10(root="data", train=False, download=True
 training_dataloader = torch.utils.data.DataLoader(training_data, batch_size=8, shuffle=True, worker_init_fn=random.seed(0)) #batch_size=64
 validation_dataloader = torch.utils.data.DataLoader(validation_data, batch_size=8, shuffle=True, worker_init_fn=random.seed(0)) #batch_size=64
 testing_dataloader = torch.utils.data.DataLoader(test_data, batch_size=8, shuffle=True, worker_init_fn=random.seed(0)) #batch_size=64
-model = ResNet18()#SimpleCIFARNet()
+model = ResNet18()
 #model.load_state_dict(torch.load("net.pth"))
 model.cuda()'''
 ################Simple-Net####################
@@ -177,7 +179,10 @@ model.cuda()
 ##############################################
 
 #####################Bilevel##########################
-inner_loss_function = LabelSmoothingLoss(10)
+inner_loss_function = LabelSmoothingLoss(10, torch.full((10,10),-999.999)+torch.diag(torch.full((10,),2*999.999)))
+#inner_loss_function = LabelSmoothingLoss(10, torch.randn((10,)))
+#inner_loss_function = LabelSmoothingLoss(10, torch.randn((1,)))
+#inner_loss_function = LabelSmoothingLoss(10, torch.tensor([-999.999]))
 inner_loss_function = inner_loss_function.cuda()
 inner_optimizer = torch.optim.Adam(model.parameters())
 outer_loss_function = nn.CrossEntropyLoss()
