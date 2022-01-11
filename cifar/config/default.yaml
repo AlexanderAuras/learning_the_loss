@@ -1,0 +1,24 @@
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}-${now:%H-%M-%S}
+  sweep:
+    dir: ./outputs/${now:%Y-%m-%d}-${now:%H-%M-%S}
+    subdir: ${hydra.job.override_dirname}
+
+defaults:
+  - dataset: cifar10
+  - model: simple
+  - inner_loss: scalar_label_smoothing
+  - inner_optimizer: adam
+  - outer_optimizer: sgd
+  - _self_
+
+cuda: true
+shuffle_data: true
+seed: 0
+load_model_file: null
+bilevel: true
+epochs: 7
+outer_batches_per_epoch: 1000
+inner_iterations: 5
+save_model_file: null

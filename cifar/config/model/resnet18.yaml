@@ -1,0 +1,2 @@
+name: resnet18
+batch_size: 8
