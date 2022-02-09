@@ -3,3 +3,5 @@ __pycache__/
 /cifar/data/
 runs/
 runs_*/
+outputs/
+outputs_*/

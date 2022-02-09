@@ -1,5 +1,4 @@
 import logging
-import os
 
 import torch
 import torch.utils.tensorboard
@@ -115,7 +114,8 @@ def bilevel_step(epoch:int,
             
             diffopt.step(inner_loss)
         
-        tensorboard.add_scalar("train/inner-loss", inner_loss_acc/config.inner_iterations, epoch*config.outer_batches_per_epoch+batch)
+        if config.inner_iterations > 0:
+            tensorboard.add_scalar("train/inner-loss", inner_loss_acc/config.inner_iterations, epoch*config.outer_batches_per_epoch+batch)
         tensorboard.add_scalar("train/inner-right-confidence", inner_right_confidence/inner_right_confidence_count if inner_right_confidence_count else float("NaN"), epoch*config.outer_batches_per_epoch+batch)
         tensorboard.add_scalar("train/inner-wrong-confidence", inner_wrong_confidence/inner_wrong_confidence_count if inner_wrong_confidence_count else float("NaN"), epoch*config.outer_batches_per_epoch+batch)
         
@@ -236,17 +236,34 @@ def main(cfg: DictConfig) -> None:
     global config, logger, tensorboard
     config = cfg
     tensorboard = torch.utils.tensorboard.SummaryWriter(".")
+    seed_generators(config.seed)
+
+    '''noise_transition_matrix = torch.tensor([
+        [0.85,    0,    0,    0,    0,    0,    0, 0.15,    0,    0],
+        [   0, 0.85,    0, 0.15,    0,    0,    0,    0,    0,    0],
+        [   0,    0, 0.85,    0,    0, 0.15,    0,    0,    0,    0],
+        [   0,    0,    0, 0.85,    0,    0,    0,    0,    0, 0.15],
+        [   0, 0.15,    0,    0, 0.85,    0,    0,    0,    0,    0],
+        [   0,    0,    0,    0,    0, 0.85, 0.15,    0,    0,    0],
+        [0.15,    0,    0,    0,    0,    0, 0.85,    0,    0,    0],
+        [   0,    0,    0,    0, 0.15,    0,    0, 0.85,    0,    0],
+        [   0,    0, 0.15,    0,    0,    0,    0,    0, 0.85,    0],
+        [   0,    0,    0,    0,    0,    0,    0,    0, 0.15, 0.85]])'''
 
     logger.info("=======Initializing=======")
     logger.info("Loading datasets")
     if config.dataset.name == "cifar10":
         if config.model.name == "simple":
-            data_transform = torchvision.transforms.Compose([torchvision.transforms.RandomHorizontalFlip(), torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+            input_transform = torchvision.transforms.Compose([torchvision.transforms.RandomHorizontalFlip(), torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
         elif config.model.name == "resnet18":
-            data_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((224, 224)), torchvision.transforms.RandomHorizontalFlip(), torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
-        data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/data", train=True, download=True, transform=data_transform)
+            input_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((224, 224)), torchvision.transforms.RandomHorizontalFlip(), torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+        if config.label_noise != None:
+            target_transform = utils.label_gaussian_noise_transform(torch.tensor(config.label_noise))
+        else:
+            target_transform=None
+        data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/data", train=True, download=True, transform=input_transform, target_transform=target_transform)
         training_data, validation_data = torch.utils.data.random_split(data, [len(data)-int(len(data)*(float(config.dataset.validation_percent)/100)), int(len(data)*(float(config.dataset.validation_percent)/100))])
-        test_data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/data", train=False, download=True, transform=data_transform)
+        test_data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/data", train=False, download=True, transform=input_transform, target_transform=target_transform)
 
     logger.info("Creating dataloaders")
     training_dataloader = torch.utils.data.DataLoader(training_data, batch_size=config.model.batch_size, shuffle=True, worker_init_fn=seed_generators(config.seed))
@@ -261,7 +278,7 @@ def main(cfg: DictConfig) -> None:
 
     if config.load_model_file != None:
         logger.info("Loading model from file")
-        model.load_state_dict(torch.load(config.load_model_file))
+        model.load_state_dict(torch.load(hydra.utils.get_original_cwd()+"/"+config.load_model_file))
 
     if config.cuda:
         logger.info("Moving model to cuda")
@@ -270,13 +287,31 @@ def main(cfg: DictConfig) -> None:
     logger.info("Creating loss functions")
     if config.bilevel:
         if config.inner_loss.name == "scalar_label_smoothing":
-            inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, 0.5*torch.randn((1,)))
+            if config.inner_loss.init == "random":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((1,)))
+            elif config.inner_loss.init == "zero":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((1,)))
+            elif config.inner_loss.init == "constant":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)))
         elif config.inner_loss.name == "vector_label_smoothing":
-            inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, 0.5*torch.randn((config.dataset.class_count,)))
+            if config.inner_loss.init == "random":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((config.dataset.class_count,)))
+            if config.inner_loss.init == "zero":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,)))
+            if config.inner_loss.init == "constant":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((config.dataset.class_count,)))
         elif config.inner_loss.name == "matrix_label_smoothing":
-            inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, 0.5*torch.randn((config.dataset.class_count,config.dataset.class_count)))
+            if config.inner_loss.init == "random":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((config.dataset.class_count,config.dataset.class_count)))
+            if config.inner_loss.init == "zero":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,config.dataset.class_count)))
+            if config.inner_loss.init == "constant":
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.full((config.dataset.class_count,config.dataset.class_count), config.inner_loss.init_value_other)+(config.inner_loss.init_value-config.inner_loss.init_value_other)*torch.diag(torch.ones((config.dataset.class_count,))))
     else:
-        inner_loss_function = torch.nn.CrossEntropyLoss()
+        if config.inner_loss.name == "scalar_label_smoothing":
+            inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)))
+        elif config.inner_loss.name == "cross_entropy":
+            inner_loss_function = torch.nn.CrossEntropyLoss()
     if config.cuda:
         logger.info("Moving loss function to cuda")
         inner_loss_function = inner_loss_function.cuda()
@@ -284,14 +319,14 @@ def main(cfg: DictConfig) -> None:
 
     logger.info("Creating optimizers")
     if config.inner_optimizer.name == "adam":
-        inner_optimizer = torch.optim.Adam(model.parameters(), lr=config.inner_optimizer.lr)
+        inner_optimizer = torch.optim.Adam(model.parameters(), lr=config.inner_optimizer.lr, betas=(config.inner_optimizer.beta1, config.inner_optimizer.beta2))
     elif config.inner_optimizer.name == "sgd":
-        inner_optimizer = torch.optim.SGD(model.parameters(), lr=config.inner_optimizer.lr)
+        inner_optimizer = torch.optim.SGD(model.parameters(), lr=config.inner_optimizer.lr, momentum=config.inner_optimizer.momentum)
     if config.bilevel:
         if config.outer_optimizer.name == "adam":
-            outer_optimizer = torch.optim.Adam(inner_loss_function.parameters(), lr=config.outer_optimizer.lr)
+            outer_optimizer = torch.optim.Adam(inner_loss_function.parameters(), lr=config.outer_optimizer.lr, betas=(config.outer_optimizer.beta1, config.outer_optimizer.beta2))
         elif config.outer_optimizer.name == "sgd":
-            outer_optimizer = torch.optim.SGD(inner_loss_function.parameters(), lr=config.outer_optimizer.lr)
+            outer_optimizer = torch.optim.SGD(inner_loss_function.parameters(), lr=config.outer_optimizer.lr, momentum=config.outer_optimizer.momentum)
     else:
         outer_optimizer = None
 
@@ -316,7 +351,7 @@ def main(cfg: DictConfig) -> None:
     test(model, testing_dataloader, outer_loss_function)
 
     if config.save_model_file != None:
-        torch.save(model.state_dict(), config.save_model_file)
+        torch.save(model.state_dict(), hydra.utils.get_original_cwd()+"/"+config.save_model_file)
     tensorboard.flush()
     tensorboard.close()
     logger.info("===========Done===========")

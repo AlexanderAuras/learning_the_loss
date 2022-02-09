@@ -1,1 +1,3 @@
 name: scalar_label_smoothing
+init: constant
+init_value: 0

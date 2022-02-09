@@ -1,4 +1,4 @@
-from residual_block import ResidualBlock
+from ltl.residual_block import ResidualBlock
 from torch import nn
 
 class ResNet18(nn.Module):

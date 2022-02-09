@@ -15,29 +15,15 @@ class LabelSmoothingLoss(torch.nn.Module):
                 w[torch.arange(0,y.shape[0]),y] = (1.0-a)*torch.ones_like(y)
             else:
                 tmp = torch.sigmoid(self.smoothing.repeat(y.shape[0],1))
-                w = tmp.clone()
                 tmp = torch.softmax(tmp, dim=1)
+                w = torch.zeros_like(tmp)
                 w[torch.arange(0,y.shape[0]),y] = (1.0-tmp[torch.arange(0,y.shape[0]),y])
-                w = torch.softmax(w, dim=1)
-                '''
-                smoothing:
-                [3, 2, 3, 4, 2, 3, 3]
-                tmp:
-                [[0.3, 0.2, 0.3, 0.4, 0.2, 0.3, 0.3]
-                 [0.3, 0.2, 0.3, 0.4, 0.2, 0.3, 0.3]]
-                w:
-                [[0.3, 0.2, 0.3, 0.4, 0.2, 0.3, 0.3]
-                 [0.3, 0.2, 0.3, 0.4, 0.2, 0.3, 0.3]]
-                tmp:
-                [[0.15, 0.1, 0.15, 0.2, 0.1, 0.15, 0.15]
-                 [0.15, 0.1, 0.15, 0.2, 0.1, 0.15, 0.15]]
-                w: (y=[1,3])
-                [[0.3, 0.9, 0.3, 0.2, 0.2, 0.3, 0.3]
-                 [0.3, 0.1, 0.3, 0.8, 0.2, 0.3, 0.3]]
-                w: (y=[1,3])
-                [[0.3/3.1, 0.9/3.1, 0.3/3.1, 0.2/3.1, 0.2/3.1, 0.3/3.1, 0.3/3.1] 
-                 [0.3/3.1, 0.1/3.1, 0.3/3.1, 0.8/3.1, 0.2/3.1, 0.3/3.1, 0.3/3.1] ]
-                '''
+                tmp2 = tmp.clone()
+                tmp2[torch.arange(0,y.shape[0]),y] = torch.zeros_like(y, dtype=torch.float32)
+                tmp2[tmp2!=0.0] = torch.exp(tmp2[tmp2!=0.0])
+                tmp2 = tmp2/tmp2.sum(dim=1).unsqueeze(dim=1).repeat((1,tmp2.shape[1]))
+                tmp2 = tmp2*(1.0-w[w!=0].unsqueeze(dim=1).repeat((1,tmp2.shape[1])))
+                w += tmp2
         else:
             w = torch.softmax(self.smoothing[y], dim=1)
         return (w*nls).sum(dim=1).mean(dim=0)
