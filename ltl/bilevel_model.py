@@ -90,9 +90,10 @@ class BilevelModel(Model):
                 self._tensorboard.add_scalar("train/outer-right-confidence", probabilities[probabilities.argmax(1)==y].max(dim=1)[0].mean().item(), epoch*self._outer_batches_per_epoch+outer_batch)
                 self._tensorboard.add_scalar("train/outer-wrong-confidence", probabilities[probabilities.argmax(1)!=y].max(dim=1)[0].mean().item(), epoch*self._outer_batches_per_epoch+outer_batch)
                 
-                self._outer_optimizer.zero_grad()
-                outer_loss.backward()
-                self._outer_optimizer.step()
+                if epoch > 3:
+                    self._outer_optimizer.zero_grad()
+                    outer_loss.backward()
+                    self._outer_optimizer.step()
                 
                 if self._inner_loss_function.smoothing.shape[0] == 1:
                     self._tensorboard.add_scalar("train/smoothing-parameter", self._inner_loss_function.smoothing.item(), epoch*self._outer_batches_per_epoch+outer_batch)

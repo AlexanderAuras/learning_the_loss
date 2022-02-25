@@ -14,6 +14,7 @@ from ltl.resnet18 import ResNet18
 from ltl.label_smoothing_loss import LabelSmoothingLoss
 from ltl.model import Model
 from ltl.bilevel_model import BilevelModel
+from ltl.transform_dataset import TransformDataset
 from ltl import utils
 
 logger = logging.getLogger(__name__)
@@ -32,9 +33,13 @@ def main(config: DictConfig) -> None:
             label_transform = utils.label_gaussian_noise_transform(torch.tensor(config.label_noise_transition_matrix))
         else:
             label_transform = None
-        data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/cifar/data", train=True, download=True, transform=data_transform, target_transform=label_transform)
+        data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/cifar/data", train=True, download=True, transform=data_transform)
         training_data, validation_data = torch.utils.data.random_split(data, [len(data)-int(len(data)*(float(config.dataset.validation_percent)/100)), int(len(data)*(float(config.dataset.validation_percent)/100))])
-        test_data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/cifar/data", train=False, download=True, transform=data_transform, target_transform=label_transform)
+        if config.train_noise:
+            training_data = TransformDataset(training_data, None, label_transform)
+        if config.validation_noise:
+            validation_data = TransformDataset(validation_data, None, label_transform)
+        test_data = torchvision.datasets.CIFAR10(root=f"{hydra.utils.get_original_cwd()}/cifar/data", train=False, download=True, transform=data_transform, target_transform=label_transform if config.test_noise else None)
 
     logger.info("Creating dataloaders")
     training_dataloader = torch.utils.data.DataLoader(training_data, batch_size=config.batch_size, shuffle=True, worker_init_fn=seed_generators(config.seed))
@@ -59,28 +64,28 @@ def main(config: DictConfig) -> None:
     if config.bilevel:
         if config.inner_loss.name == "scalar_label_smoothing":
             if config.inner_loss.init == "random":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((1,)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((1,)), config.inner_loss.sigmoid)
             elif config.inner_loss.init == "zero":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((1,)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((1,)), config.inner_loss.sigmoid)
             elif config.inner_loss.init == "constant":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)), config.inner_loss.sigmoid)
         elif config.inner_loss.name == "vector_label_smoothing":
             if config.inner_loss.init == "random":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((config.dataset.class_count,)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((config.dataset.class_count,)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "zero":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "constant":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((config.dataset.class_count,)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((config.dataset.class_count,)), config.inner_loss.sigmoid)
         elif config.inner_loss.name == "matrix_label_smoothing":
             if config.inner_loss.init == "random":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((config.dataset.class_count,config.dataset.class_count)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  0.5*torch.randn((config.dataset.class_count,config.dataset.class_count)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "zero":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,config.dataset.class_count)))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,config.dataset.class_count)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "constant":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.full((config.dataset.class_count,config.dataset.class_count), config.inner_loss.init_value_other)+(config.inner_loss.init_value-config.inner_loss.init_value_other)*torch.diag(torch.ones((config.dataset.class_count,))))
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.full((config.dataset.class_count,config.dataset.class_count), config.inner_loss.init_value_other)+(config.inner_loss.init_value-config.inner_loss.init_value_other)*torch.diag(torch.ones((config.dataset.class_count,))), config.inner_loss.sigmoid)
     else:
         if config.inner_loss.name == "scalar_label_smoothing":
-            inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)))
+            inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)), config.inner_loss.sigmoid)
         elif config.inner_loss.name == "cross_entropy":
             inner_loss_function = torch.nn.CrossEntropyLoss()
     if config.cuda:
@@ -103,12 +108,12 @@ def main(config: DictConfig) -> None:
 
     inner_lr_scheduler = None
     outer_lr_scheduler = None
-    if config.inner_lr_scheduler.name != "none" or config.outer_lr_scheduler.name != "none":
+    if config.inner_lr_scheduler.name != "none" or (config.bilevel and config.outer_lr_scheduler.name != "none"):
         logger.info("Creating learning rate schedulers")
         if config.inner_lr_scheduler.name != "none":
             if config.inner_lr_scheduler.name == "step":
                 inner_lr_scheduler = torch.optim.lr_scheduler.StepLR(inner_optimizer, config.inner_lr_scheduler.step_size, config.inner_lr_scheduler.gamma)
-        if config.outer_lr_scheduler.name != "none":
+        if (config.bilevel and config.outer_lr_scheduler.name != "none"):
             if config.outer_lr_scheduler.name == "step":
                 outer_lr_scheduler = torch.optim.lr_scheduler.StepLR(outer_optimizer, config.outer_lr_scheduler.step_size, config.outer_lr_scheduler.gamma)
 
