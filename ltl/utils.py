@@ -26,7 +26,12 @@ def make_deterministic(seed: int) -> None:
 
 
 
-def render_matrix(matrix: torch.tensor, title: str, x_label: str = "", y_label:str = "") -> torch.tensor:
+def translate_to_zero(matrix: np.ndarray) -> torch.tensor:
+    return matrix-np.tile(matrix.min(axis=1),(matrix.shape[0],1)).T
+
+
+
+def render_matrix(matrix: np.ndarray, title: str, x_label: str = "", y_label:str = "") -> torch.tensor:
     figure = plt.figure()
     plt.imshow(matrix.transpose(), interpolation="nearest", cmap=plt.cm.inferno)
     plt.title(title)
@@ -54,6 +59,7 @@ def copy_higher_to_torch(higher_fmodel_state: higher.patch._MonkeyPatchBase, hig
                     optimizer.state[optimizer.param_groups[0]["params"][group_idx]][entry_key].copy_(entry_value)
                 else:
                     optimizer.state[optimizer.param_groups[0]["params"][group_idx]][entry_key] = entry_value
+
 
 
 #https://arxiv.org/pdf/2007.08199v6.pdf

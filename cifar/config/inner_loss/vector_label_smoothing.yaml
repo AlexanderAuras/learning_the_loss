@@ -1,4 +1,4 @@
 name: vector_label_smoothing
 sigmoid: true
 init: constant
-init_value: 0
+init_value: -4

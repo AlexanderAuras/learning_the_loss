@@ -37,6 +37,6 @@ class LabelSmoothingLoss(torch.nn.Module):
                 w = torch.softmax(torch.sigmoid(self.smoothing[y]), dim=1)
             else:
                 w = torch.softmax(self.smoothing[y], dim=1)
-            w = torch.softmax(self.smoothing[y], dim=1)
-        #return (w*nls).sum(dim=1).mean(dim=0)
-        return torch.nn.functional.kl_div(z.log_softmax(dim=1), w, reduction="batchmean")
+            #?!!!!!!!!!!!!!!!!!!! w = torch.softmax(self.smoothing[y], dim=1)
+        return (w*nls).sum(dim=1).mean(dim=0)
+        #return (w*torch.log(w/z.softmax(dim=1))).sum(dim=1).mean(dim=0) #return torch.nn.functional.kl_div(z.log_softmax(dim=1), w, reduction="batchmean")

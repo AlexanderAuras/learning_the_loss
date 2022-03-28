@@ -1,5 +1,7 @@
 import logging
 
+import torch
+
 import torchmetrics
 
 import higher
@@ -90,17 +92,16 @@ class BilevelModel(Model):
                 self._tensorboard.add_scalar("train/outer-right-confidence", probabilities[probabilities.argmax(1)==y].max(dim=1)[0].mean().item(), epoch*self._outer_batches_per_epoch+outer_batch)
                 self._tensorboard.add_scalar("train/outer-wrong-confidence", probabilities[probabilities.argmax(1)!=y].max(dim=1)[0].mean().item(), epoch*self._outer_batches_per_epoch+outer_batch)
                 
-                if epoch > 3:
-                    self._outer_optimizer.zero_grad()
-                    outer_loss.backward()
-                    self._outer_optimizer.step()
+                self._outer_optimizer.zero_grad()
+                outer_loss.backward()
+                self._outer_optimizer.step()
                 
                 if self._inner_loss_function.smoothing.shape[0] == 1:
                     self._tensorboard.add_scalar("train/smoothing-parameter", self._inner_loss_function.smoothing.item(), epoch*self._outer_batches_per_epoch+outer_batch)
                 elif self._inner_loss_function.smoothing.shape[0] != 1 and (len(self._inner_loss_function.smoothing.shape) == 1 or self._inner_loss_function.smoothing.shape[1] == 1):
                     self._tensorboard.add_figure("train/smoothing-parameter", utils.render_matrix(self._inner_loss_function.smoothing.clone().detach().unsqueeze(dim=0).cpu().numpy(), "Smoothing vector", "", "Weight"), epoch*self._outer_batches_per_epoch+outer_batch)
                 elif self._inner_loss_function.smoothing.shape[0] != 1 and self._inner_loss_function.smoothing.shape[1] != 1:
-                    self._tensorboard.add_figure("train/smoothing-parameter", utils.render_matrix(self._inner_loss_function.smoothing.clone().detach().cpu().numpy(), "Smoothing matrix", "Weight", "Correct label"), epoch*self._outer_batches_per_epoch+outer_batch)
+                    self._tensorboard.add_figure("train/smoothing-parameter", utils.render_matrix(utils.translate_to_zero(self._inner_loss_function.smoothing.clone().detach().cpu().numpy()), "Smoothing matrix", "Correct label", "Weight"), epoch*self._outer_batches_per_epoch+outer_batch)
                 ##############################
 
             utils.copy_higher_to_torch(new_module_state, new_optimizer_state, self._module, self._inner_optimizer)
@@ -109,6 +110,8 @@ class BilevelModel(Model):
             self._inner_lr_scheduler.step()
         if self._outer_lr_scheduler != None:
             self._outer_lr_scheduler.step()
+
+        torch.cuda.empty_cache()
         
         self._logger.info("\t100%")
         self._logger.info("")
