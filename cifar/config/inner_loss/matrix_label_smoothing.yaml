@@ -1,5 +1,5 @@
 name: matrix_label_smoothing
 sigmoid: false
 init: constant
-init_value: 6.19722457734
+init_value: 0.0
 init_value_other: 0.0

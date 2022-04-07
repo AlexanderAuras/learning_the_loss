@@ -18,7 +18,6 @@ from ltl.transform_dataset import TransformDataset
 from ltl import utils
 
 logger = logging.getLogger(__name__)
-import matplotlib.pyplot as plt
 
 @hydra.main(config_path="cifar/config", config_name="default.yaml")
 def main(config: DictConfig) -> None:
@@ -65,23 +64,23 @@ def main(config: DictConfig) -> None:
     if config.bilevel:
         if config.inner_loss.name == "scalar_label_smoothing":
             if config.inner_loss.init == "random":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  10.0*torch.rand((1,))-5.0, config.inner_loss.sigmoid)
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, 10.0*torch.rand((1,))-5.0, config.inner_loss.sigmoid)
             elif config.inner_loss.init == "zero":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((1,)), config.inner_loss.sigmoid)
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.zeros((1,)), config.inner_loss.sigmoid)
             elif config.inner_loss.init == "constant":
                 inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((1,)), config.inner_loss.sigmoid)
         elif config.inner_loss.name == "vector_label_smoothing":
             if config.inner_loss.init == "random":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  10.0*torch.rand((config.dataset.class_count,))-5.0, config.inner_loss.sigmoid)
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, 10.0*torch.rand((config.dataset.class_count,))-5.0, config.inner_loss.sigmoid)
             if config.inner_loss.init == "zero":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,)), config.inner_loss.sigmoid)
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.zeros((config.dataset.class_count,)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "constant":
                 inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, config.inner_loss.init_value*torch.ones((config.dataset.class_count,)), config.inner_loss.sigmoid)
         elif config.inner_loss.name == "matrix_label_smoothing":
             if config.inner_loss.init == "random":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,  10.0*torch.rand((config.dataset.class_count,config.dataset.class_count))-5.0, config.inner_loss.sigmoid)
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.rand((config.dataset.class_count,config.dataset.class_count)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "zero":
-                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count,      torch.zeros((config.dataset.class_count,config.dataset.class_count)), config.inner_loss.sigmoid)
+                inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.zeros((config.dataset.class_count,config.dataset.class_count)), config.inner_loss.sigmoid)
             if config.inner_loss.init == "constant":
                 inner_loss_function = LabelSmoothingLoss(config.dataset.class_count, torch.full((config.dataset.class_count,config.dataset.class_count), config.inner_loss.init_value_other)+(config.inner_loss.init_value-config.inner_loss.init_value_other)*torch.diag(torch.ones((config.dataset.class_count,))), config.inner_loss.sigmoid)
     else:

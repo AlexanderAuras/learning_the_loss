@@ -21,22 +21,22 @@ shuffle_data: true
 seed: 0
 load_model_file: null
 bilevel: true
-epochs: 50
+epochs: 10
 outer_batches_per_epoch: 500
 inner_iterations: 5
 save_model_file: null
-label_noise_transition_matrix: null #[
-#        [0.85,    0,    0,    0,    0,    0,    0, 0.15,    0,    0], #Probabilities for class 0 to become class i
-#        [   0, 0.85,    0, 0.15,    0,    0,    0,    0,    0,    0], #Probabilities for class 1 to become class i
-#        [   0,    0, 0.85,    0,    0, 0.15,    0,    0,    0,    0], #Probabilities for class 2 to become class i
-#        [   0,    0,    0, 0.85,    0,    0,    0,    0,    0, 0.15], #Probabilities for class 3 to become class i
-#        [   0, 0.15,    0,    0, 0.85,    0,    0,    0,    0,    0], #Probabilities for class 4 to become class i
-#        [   0,    0,    0,    0,    0, 0.85, 0.15,    0,    0,    0], #Probabilities for class 5 to become class i
-#        [0.15,    0,    0,    0,    0,    0, 0.85,    0,    0,    0], #Probabilities for class 6 to become class i
-#        [   0,    0,    0,    0, 0.15,    0,    0, 0.85,    0,    0], #Probabilities for class 7 to become class i
-#        [   0,    0, 0.15,    0,    0,    0,    0,    0, 0.85,    0], #Probabilities for class 8 to become class i
-#        [   0,    0,    0,    0,    0,    0,    0,    0, 0.15, 0.85]  #Probabilities for class 9 to become class i
-#      ]
-train_noise: false #true
+label_noise_transition_matrix: [
+        [0.85,    0,    0,    0,    0,    0,    0, 0.15,    0,    0], #Probabilities for class 0 to become class i
+        [   0, 0.85,    0, 0.15,    0,    0,    0,    0,    0,    0], #Probabilities for class 1 to become class i
+        [   0,    0, 0.85,    0,    0, 0.15,    0,    0,    0,    0], #Probabilities for class 2 to become class i
+        [   0,    0,    0, 0.85,    0,    0,    0,    0,    0, 0.15], #Probabilities for class 3 to become class i
+        [   0, 0.15,    0,    0, 0.85,    0,    0,    0,    0,    0], #Probabilities for class 4 to become class i
+        [   0,    0,    0,    0,    0, 0.85, 0.15,    0,    0,    0], #Probabilities for class 5 to become class i
+        [0.15,    0,    0,    0,    0,    0, 0.85,    0,    0,    0], #Probabilities for class 6 to become class i
+        [   0,    0,    0,    0, 0.15,    0,    0, 0.85,    0,    0], #Probabilities for class 7 to become class i
+        [   0,    0, 0.15,    0,    0,    0,    0,    0, 0.85,    0], #Probabilities for class 8 to become class i
+        [   0,    0,    0,    0,    0,    0,    0,    0, 0.15, 0.85]  #Probabilities for class 9 to become class i
+      ]
+train_noise: true
 validation_noise: false
 test_noise: false

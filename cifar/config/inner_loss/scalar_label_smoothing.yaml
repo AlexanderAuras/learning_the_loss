@@ -1,4 +1,4 @@
 name: scalar_label_smoothing
 sigmoid: true
 init: constant
-init_value: -4
+init_value: 0
